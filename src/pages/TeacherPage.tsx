@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Teacher } from "@/models/Teacher";
 import { TeacherForm } from "@/components/form/TeacherForm";
-import { getAllProfessors,deleteProfessor,updateProfessor } from "../services/Teacher/addTeacher";
+import { getAllProfessors,deleteProfessor,updateProfessor } from "../services/Teacher/crudTeacher";
 
 type DashboardContextType = {
     setPageTitle: (title: string) => void;

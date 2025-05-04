@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Teacher } from "@/models/Teacher";
 import { v4 as uuidv4 } from "uuid";
-import { addProfessor } from "../../services/Teacher/addTeacher"
-import { auth } from "@/firebase";
+import { addProfessor } from "../../services/Teacher/crudTeacher"
+import { auth } from "@/services/firebase";
 
 interface TeacherFormProps{
     onAdd: (profesor: Teacher) => void;

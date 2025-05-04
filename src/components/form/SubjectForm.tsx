@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Subject as Materia } from "../../models/Subject";
 import { v4 as uuidv4 } from "uuid";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/firebase";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { auth, db } from "./../../services/firebase";
+import { saveSubject } from "@/services/Subject/crudSubject";
 
 interface MateriaFormProps{
     onAdd: (materia: Materia) => void;
@@ -23,13 +24,13 @@ export function MateriaForm({ onAdd, onCancel }: MateriaFormProps) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-    const nuevaMateria: Materia = {
-        id: uuidv4(),
-        name: nombre,
-        teacher: profesor ? { id: profesor.id, name: profesor.name, email: "" } : { id: "", name: "", email: "" },
-        classroom:aula,
-        difficulty:dificultad,
-    };
+        const nuevaMateria: Materia = {
+            id: uuidv4(),
+            name: nombre,
+            teacher: profesor ? { id: profesor.id, name: profesor.name, email: "" } : { id: "", name: "", email: "" },
+            classroom:aula,
+            difficulty:dificultad,
+        };
     onAdd(nuevaMateria);
     setNombre("");
     setProfesor(null);
@@ -37,11 +38,21 @@ export function MateriaForm({ onAdd, onCancel }: MateriaFormProps) {
     setDificultad(3);
     };
 
+    const getCurrentUserId = (): string => {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            throw new Error('No hay usuario autenticado');
+        }
+        return currentUser.uid;
+    };
+
     useEffect(() => {
         const fetchProfesores = async () => {
             try {
+                const userId = getCurrentUserId();
                 const profesoresCollection = collection(db, "professors");
-                const profesoresSnapshot = await getDocs(profesoresCollection);
+                const q = query(profesoresCollection,where("userId", "==", userId));
+                const profesoresSnapshot = await getDocs(q);
                 const profesoresData: Profesor[] = profesoresSnapshot.docs.map((doc) => ({
                     id: doc.id,
                     name: doc.data().name,

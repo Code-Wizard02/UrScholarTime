@@ -1,5 +1,5 @@
 import { collection, doc, addDoc, updateDoc, deleteDoc, getDocs, getDoc, query, where } from 'firebase/firestore';
-import { db, auth } from '../../firebase';
+import { db, auth } from '../firebase';
 import { Teacher as Professor } from '@/models/Teacher';
 
 // Nombre de la colección en Firestore
@@ -19,6 +19,7 @@ const getCurrentUserId = (): string => {
 export const addProfessor = async (professor: Omit<Professor, 'id'>): Promise<string> => {
   try {
     const userId = getCurrentUserId();
+    console.log(' add userId', userId);
 
     const professorWithUserId = {
       ...professor,
@@ -28,6 +29,9 @@ export const addProfessor = async (professor: Omit<Professor, 'id'>): Promise<st
     };
 
     const docRef = await addDoc(collection(db, COLLECTION_NAME),professorWithUserId);
+    console.log('Profesor añadido con ID:', docRef.id);
+    await updateDoc(docRef, {id: docRef.id});
+    
     return docRef.id;
   } catch (error) {
     console.error('Error añadiendo profesor:', error);
@@ -40,7 +44,10 @@ export const addProfessor = async (professor: Omit<Professor, 'id'>): Promise<st
  */
 export const getAllProfessors = async (): Promise<Professor[]> => {
   try {
-    const userId = getCurrentUserId();
+    const userId = auth.currentUser?.uid; // Manejar el caso en que no hay usuario autenticado
+    if (!userId) {
+      throw new Error('No hay usuario autenticado');
+    }
     const q = query(collection(db, COLLECTION_NAME), where("userId", "==", userId));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
@@ -58,7 +65,10 @@ export const getAllProfessors = async (): Promise<Professor[]> => {
  */
 export const getProfessorById = async (id: string): Promise<Professor | null> => {
   try {
-    const userId = getCurrentUserId();
+    const userId = auth.currentUser?.uid; // Manejar el caso en que no hay usuario autenticado
+    if (!userId) {
+      throw new Error('No hay usuario autenticado');
+    }
     const docRef = doc(db, COLLECTION_NAME, id);
     const docSnap = await getDoc(docRef);
     
@@ -84,8 +94,12 @@ export const getProfessorById = async (id: string): Promise<Professor | null> =>
  */
 export const updateProfessor = async (id: string, data: Partial<Professor>): Promise<void> => {
   try {
-    const userId = getCurrentUserId();
+    const userId = auth.currentUser?.uid; // Manejar el caso en que no hay usuario autenticado
+    if (!userId) {
+      throw new Error('No hay usuario autenticado');
+    }
     const professorRef = doc(db, COLLECTION_NAME, id);
+    console.log('Intentando actualizar profesor con Id:',id );
     const docSnap = await getDoc(professorRef);
 
     if (!docSnap.exists()) {
@@ -112,7 +126,11 @@ export const updateProfessor = async (id: string, data: Partial<Professor>): Pro
  */
 export const deleteProfessor = async (id: string): Promise<void> => {
   try {
-    const userId = getCurrentUserId();
+    const userId = auth.currentUser?.uid; // Manejar el caso en que no hay usuario autenticado
+    if (!userId) {
+      throw new Error('No hay usuario autenticado');
+    }
+    console.log('Intentando eliminar profesor con Id:',id );
     const professorRef = doc(db, COLLECTION_NAME, id);
     const docSnap = await getDoc(professorRef);
 

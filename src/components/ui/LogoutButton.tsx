@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { auth } from "../../firebase";
+import { auth } from "../../services/firebase";
 import { LogOut } from "lucide-react";
 
 export const LogoutButton: React.FC = () => {
