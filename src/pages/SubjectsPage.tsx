@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Subject as Materia } from "../models/Subject";
 import { MateriaForm } from "../components/form/SubjectForm";
-import { loadFromStorage, saveToStorage } from "../utils/storage";
+import { saveToStorage } from "../utils/storage";
 import { useOutletContext } from "react-router-dom";
+import { getSubjectsByUser } from "@/services/Subject/crudSubject";
+import { auth } from "@/services/firebase";
 
 type DashboardContextType = {
     setPageTitle: (title: string) => void;
@@ -11,6 +13,7 @@ type DashboardContextType = {
 export function MateriasPage() {
     const [materias, setMaterias] = useState<Materia[]>([]);
     const { setPageTitle } = useOutletContext<DashboardContextType>();
+    const [showForm, setShowForm] = useState(false);
 
     useEffect(() => {
         setPageTitle("📚 Materias");
@@ -18,11 +21,17 @@ export function MateriasPage() {
     }, [setPageTitle]);
 
     useEffect(() => {
-        const loaded = loadFromStorage<Materia[]>(
-            "materias",
-            [] as Materia[]
-        );
-        setMaterias(loaded);
+        const fetchMaterias = async () => {
+            try {
+                const userId = getCurrentUserId(); // Obtener el ID del usuario actual
+                const materias = await getSubjectsByUser(userId); // Llamar al método
+                setMaterias(materias);
+            } catch (error) {
+                console.error("Error al obtener las materias:", error);
+
+            }
+        };
+        fetchMaterias();
     }, []);
 
     useEffect(() => {
@@ -33,11 +42,18 @@ export function MateriasPage() {
         setMaterias((prev) => [...prev, materia]);
     };
 
+
+    const getCurrentUserId = (): string => {
+        const currentUser = auth.currentUser;
+            if (!currentUser) {
+                throw new Error('No hay usuario autenticado');
+            }
+        return currentUser.uid;
+    };
+
 //     const handleAddMateria = (materia: Materia) => {
 //     setMaterias([...materias, materia]);
 // };
-
-    const [showForm, setShowForm] = useState(false);
 
     return (
         <div className="p-2 max-w-xl mx-auto"> 

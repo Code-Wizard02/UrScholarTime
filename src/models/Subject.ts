@@ -7,5 +7,8 @@ export interface Subject {
         email: string;
     };
     classroom: string;
-    difficulty: number; // 1 a 5
+    difficulty: number;
+    userId: string;
+    createdAt: Date;
+    updatedAt?: Date;
 }  

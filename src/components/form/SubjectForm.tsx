@@ -22,7 +22,7 @@ export function MateriaForm({ onAdd, onCancel }: MateriaFormProps) {
     const [dificultad, setDificultad] = useState(1);
     const [profesores, setProfesores] = useState<Profesor[]>([]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const nuevaMateria: Materia = {
             id: uuidv4(),
@@ -30,12 +30,21 @@ export function MateriaForm({ onAdd, onCancel }: MateriaFormProps) {
             teacher: profesor ? { id: profesor.id, name: profesor.name, email: "" } : { id: "", name: "", email: "" },
             classroom:aula,
             difficulty:dificultad,
+            userId: getCurrentUserId(),
+            createdAt: new Date()
         };
-    onAdd(nuevaMateria);
-    setNombre("");
-    setProfesor(null);
-    setAula("");
-    setDificultad(3);
+        try {
+            const userId = getCurrentUserId();
+            await saveSubject(nuevaMateria, userId);
+
+            onAdd(nuevaMateria);
+            setNombre("");
+            setProfesor(null);
+            setAula("");
+            setDificultad(3);
+        } catch (error) {
+            console.error("Error al guardar la materia:", error);
+        }
     };
 
     const getCurrentUserId = (): string => {
