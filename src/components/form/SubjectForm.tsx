@@ -3,11 +3,13 @@ import { Subject as Materia } from "../../models/Subject";
 import { v4 as uuidv4 } from "uuid";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { auth, db } from "./../../services/firebase";
-import { saveSubject } from "@/services/Subject/crudSubject";
+import { addSubject } from "@/services/Subject/crudSubject";
 
 interface MateriaFormProps{
     onAdd: (materia: Materia) => void;
     onCancel: () => void;
+    materiaInicial?: Materia | null;
+    modoEdicion?: boolean;
 }
 
 interface Profesor {
@@ -15,35 +17,70 @@ interface Profesor {
     name: string;
 }
 
-export function MateriaForm({ onAdd, onCancel }: MateriaFormProps) {
+export function MateriaForm({ 
+    onAdd,
+    onCancel,
+    materiaInicial = null,    
+    modoEdicion=false
+}: MateriaFormProps) {
     const [nombre, setNombre] = useState("");
-    const [profesor, setProfesor] = useState<Profesor | null>(null);
+    const [subject, setProfesor] = useState<Profesor | null>(null);
     const [aula, setAula] = useState("");
     const [dificultad, setDificultad] = useState(1);
     const [profesores, setProfesores] = useState<Profesor[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+
+    useEffect(() => {
+        if (materiaInicial) {
+            setNombre(materiaInicial.name || "");
+            setProfesor(materiaInicial.teacher || null);
+            setAula(materiaInicial.classroom || "");
+            setDificultad(materiaInicial.difficulty || 3);
+        }
+    }, [materiaInicial]);
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const nuevaMateria: Materia = {
-            id: uuidv4(),
-            name: nombre,
-            teacher: profesor ? { id: profesor.id, name: profesor.name, email: "" } : { id: "", name: "", email: "" },
-            classroom:aula,
-            difficulty:dificultad,
-            userId: getCurrentUserId(),
-            createdAt: new Date()
-        };
+        setIsSubmitting(true);
         try {
-            const userId = getCurrentUserId();
-            await saveSubject(nuevaMateria, userId);
-
-            onAdd(nuevaMateria);
-            setNombre("");
-            setProfesor(null);
-            setAula("");
-            setDificultad(3);
+            if (modoEdicion && materiaInicial && materiaInicial.id) {
+                const materiaActualizada: Materia = {
+                    ...materiaInicial,
+                    name: nombre,
+                    teacher: subject ? { ...subject, email: "default@example.com" } : { id: "", name: "", email: "" },
+                    classroom: aula,
+                    difficulty: dificultad,
+                    updatedAt: new Date(),
+                };
+                onAdd(materiaActualizada);
+            } else {
+                const nuevaMateria: Materia = {
+                    id: uuidv4(),
+                    name: nombre,
+                    teacher: subject ? { ...subject, email: "" } : { id: "", name: "", email: "" },
+                    classroom: aula,
+                    difficulty: dificultad,
+                    userId: auth.currentUser?.uid || "userId",
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                };
+                const subjectId = await addSubject(nuevaMateria);
+                const subjectWithId = {
+                    ...nuevaMateria,
+                    id: subjectId,
+                };
+                onAdd(subjectWithId);
+                setNombre("");
+                setProfesor(null);
+                setAula("");
+                setDificultad(3);
+            }
         } catch (error) {
             console.error("Error al guardar la materia:", error);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -78,7 +115,7 @@ export function MateriaForm({ onAdd, onCancel }: MateriaFormProps) {
     return (
         <div className="text-center mb-4">
         <form onSubmit={handleSubmit} className="space-y-4 p-4">
-            <h2 className="text-2xl font-bold mb-4">Agregar Materia</h2>
+            <h2 className="text-2xl font-bold mb-4">{modoEdicion ? "Editar subject" : "Agregar subject"}</h2>
             <input
                 type="text"
                 placeholder="Nombre de la materia"
@@ -89,7 +126,7 @@ export function MateriaForm({ onAdd, onCancel }: MateriaFormProps) {
             />
             <select
                 className="w-full border rounded p-2 bg-white text-gray-500 dark:bg-gray-800 dark:text-gray-200"
-                value={profesor?.name || ""}
+                value={subject?.id || ""}
                 onChange={(e) => {
                     const selectedProfesor = profesores.find((prof) => prof.id === e.target.value);
                     setProfesor(selectedProfesor || null);
@@ -127,13 +164,22 @@ export function MateriaForm({ onAdd, onCancel }: MateriaFormProps) {
             <button
                 type="submit"
                 className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                disabled={isSubmitting}
             >
-            Agregar materia
+            {isSubmitting 
+                        ? "Agregando..." 
+                        : modoEdicion
+                            ? "Actualizar" 
+                            : "Agregar materia"
+                    }
             </button>
             <button
                 type="button"
-                onClick={onCancel}
+                onClick={() => {
+                    onCancel();
+                }}
                 className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                disabled={isSubmitting}
             >
                 Cancelar
             </button>

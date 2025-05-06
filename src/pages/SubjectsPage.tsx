@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { Subject as Materia } from "../models/Subject";
 import { MateriaForm } from "../components/form/SubjectForm";
-import { saveToStorage } from "../utils/storage";
 import { useOutletContext } from "react-router-dom";
-import { getSubjectsByUser } from "@/services/Subject/crudSubject";
-import { auth } from "@/services/firebase";
+import { getAllSubjects, deleteSubject, updateSubject } from "@/services/Subject/crudSubject";
 
 type DashboardContextType = {
     setPageTitle: (title: string) => void;
@@ -12,6 +10,8 @@ type DashboardContextType = {
 
 export function MateriasPage() {
     const [materias, setMaterias] = useState<Materia[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const { setPageTitle } = useOutletContext<DashboardContextType>();
     const [showForm, setShowForm] = useState(false);
 
@@ -23,33 +23,92 @@ export function MateriasPage() {
     useEffect(() => {
         const fetchMaterias = async () => {
             try {
-                const userId = getCurrentUserId(); // Obtener el ID del usuario actual
-                const materias = await getSubjectsByUser(userId); // Llamar al método
-                setMaterias(materias);
+                setLoading(true);
+                const materiasData = await getAllSubjects();
+                setMaterias(materiasData as Materia[]);
+                setError(null);
             } catch (error) {
                 console.error("Error al obtener las materias:", error);
-
+                setError("Error al obtener las materias.");
+            } finally {
+                setLoading(false);
             }
         };
         fetchMaterias();
     }, []);
 
-    useEffect(() => {
-        saveToStorage<Materia[]>("materias", materias);
-    }, [materias]);
+    // useEffect(() => {
+    //     saveToStorage<Materia[]>("materias", materias);
+    // }, [materias]);
 
     const addMateria = (materia: Materia) => {
         setMaterias((prev) => [...prev, materia]);
     };
 
+    const handleDeleteMateria = async (id: string) => {
+        if (!id) return;
 
-    const getCurrentUserId = (): string => {
-        const currentUser = auth.currentUser;
-            if (!currentUser) {
-                throw new Error('No hay usuario autenticado');
+        if (window.confirm("¿Estás seguro que deseas eliminar esta materia?")) {
+            try {
+                await deleteSubject(id);
+                const updatedMaterias = materias.filter((materia) => materia.id !== id);
+                setMaterias(updatedMaterias);
+            } catch (error) {
+                console.error("Error al eliminar la materia:", error);
             }
-        return currentUser.uid;
+        }
     };
+
+    const [materiaEditando, setMateriaEditando] = useState<Materia | null>(null);
+
+    const handleEditSubject = async (materia: Materia) => {
+        if (!materia.id) return;
+        setMateriaEditando(materia);
+        setShowForm(true);
+    }
+
+    const handleUpdateMateria = async (materiaActualizada: Materia) => {
+        try {
+            if (!materiaActualizada.id) return;
+            await updateSubject(materiaActualizada.id,{
+                ...materiaActualizada,
+                updatedAt: new Date(),
+            });
+            setMaterias((prevMaterias) =>
+                prevMaterias.map((materia) =>
+                    materia.id === materiaActualizada.id ? materiaActualizada : materia
+                )
+            );
+            setMateriaEditando(null);
+            setShowForm(false);
+        } catch (error) {
+            console.error("Error al actualizar la materia:", error);
+            alert("No se pudo actualizar la materia. Por favor, intenta de nuevo.");
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setShowForm(false);
+        setMateriaEditando(null);
+    }
+
+    if (loading) {
+        return <div className="text-center mt-2">Cargando...</div>;
+    }
+    if (error) {
+        return (
+            <div className="text-center p-6 text-red-500">
+                <p>{error}</p>
+                <button 
+                    onClick={() => window.location.reload()} 
+                    className="mt-4 bg-blue-500 text-white px-4 py-2 rounded"
+                >
+                    Intentar de nuevo
+                </button>
+            </div>
+        );
+    }
+
 
 //     const handleAddMateria = (materia: Materia) => {
 //     setMaterias([...materias, materia]);
@@ -60,7 +119,9 @@ export function MateriasPage() {
             <div className="mb-4">
                 {materias.length > 0 && (
                     <button
-                        onClick={() => setShowForm(!showForm)}
+                        onClick={() => {
+                            setShowForm(!showForm)
+                        }}
                         className="bg-green-500 text-white px-4 py-2 rounded"
                     >
                         {showForm ? "Ver Materias" : "Añadir Materia"}
@@ -70,8 +131,10 @@ export function MateriasPage() {
 
             {showForm ? (
                 <MateriaForm 
-                    onAdd={addMateria}
-                    onCancel={()=>{setShowForm(false)}}
+                    onAdd={materiaEditando ? handleUpdateMateria : addMateria}
+                    onCancel={handleCancelEdit}
+                    materiaInicial={materiaEditando}
+                    modoEdicion={!!materiaEditando}
                     />
             ) : materias.length === 0 ? (
                 <div className="text-center mt-2">
@@ -101,10 +164,7 @@ export function MateriasPage() {
                             <div className="flex space-x-2">
                                 <button
                                     onClick={() => {
-                                        const updatedMaterias = materias.filter(
-                                            (materia) => materia.id !== m.id
-                                        );
-                                        setMaterias(updatedMaterias);
+                                        m.id && handleDeleteMateria(m.id);
                                     }}
                                     className="bg-red-500 text-white px-3 py-1 rounded"
                                 >
@@ -112,18 +172,7 @@ export function MateriasPage() {
                                 </button>
                                 <button
                                     onClick={() => {
-                                        const updatedName = prompt(
-                                            "Editar nombre de la materia:",
-                                            m.name
-                                        );
-                                        if (updatedName) {
-                                            const updatedMaterias = materias.map((materia) =>
-                                                materia.id === m.id
-                                                    ? { ...materia, name: updatedName }
-                                                    : materia
-                                            );
-                                            setMaterias(updatedMaterias);
-                                        }
+                                        handleEditSubject(m);
                                     }}
                                     className="bg-blue-500 text-white px-3 py-1 rounded"
                                 >
